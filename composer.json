@@ -1,0 +1,42 @@
+{
+    "name": "thefrosty/wp-media-sortable-filesize",
+    "description": "",
+    "type": "wordpress-plugin",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Austin Passy",
+            "email": "thefrosty@users.noreply.github.com",
+            "homepage": "https://austin.passy.co/"
+        }
+    ],
+    "config": {
+        "allow-plugins": {
+            "composer/installers": true,
+            "roots/wordpress-core-installer": true,
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        },
+        "optimize-autoloader": true,
+        "platform": {
+            "php": "8.1"
+        },
+        "preferred-install": "dist",
+        "sort-packages": true
+    },
+    "require": {
+        "php": "^8.1",
+        "composer/installers": "~2.0",
+        "symfony/http-foundation": "~6.4.14 || ^7.1.7",
+        "thefrosty/wp-utilities": "^3.4"
+    },
+    "require-dev": {
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0.0",
+        "roave/security-advisories": "dev-master",
+        "roots/wordpress-no-content": "^6.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "Thefrosty\\WpMediaSortableFilesize\\": "src/"
+        }
+    }
+}
