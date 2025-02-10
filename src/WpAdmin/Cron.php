@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace TheFrosty\WpMediaSortableFilesize\WpAdmin;
 
 use TheFrosty\WpMediaSortableFilesize\WpAdmin\Columns\FileSize;
-use TheFrosty\WpUtilities\Api\WpCacheTrait;
 use TheFrosty\WpUtilities\Api\WpQueryTrait;
 use TheFrosty\WpUtilities\Plugin\AbstractContainerProvider;
 use TheFrosty\WpUtilities\Plugin\HttpFoundationRequestInterface;
@@ -16,6 +15,7 @@ use function get_post_meta;
 use function is_readable;
 use function is_string;
 use function set_time_limit;
+use function set_transient;
 use function time;
 use function update_post_meta;
 use function wp_filesize;
@@ -27,16 +27,19 @@ use function wp_filesize;
 class Cron extends AbstractContainerProvider implements HttpFoundationRequestInterface
 {
 
-    use HttpFoundationRequestTrait, WpCacheTrait, WpQueryTrait;
+    use HttpFoundationRequestTrait, WpQueryTrait;
 
-    final public const HOOK = 'wp_media_sortable_filesize';
+    final public const HOOK_UPDATE_META = 'wp_media_sortable_filesize';
+    final public const HOOK_UPDATE_COUNT = 'wp_media_sortable_filesize';
+    final public const TRANSIENT = 'wp_media_sortable_filesize_count';
 
     /**
      * Add class hooks.
      */
     public function addHooks(): void
     {
-        $this->addAction(self::HOOK, [$this, 'updateAllAttachmentsPostMeta']);
+        $this->addAction(self::HOOK_UPDATE_META, [$this, 'updateAllAttachmentsPostMeta']);
+        $this->addAction(self::HOOK_UPDATE_COUNT, [$this, 'updateAttachmentCount']);
     }
 
     /**
@@ -47,20 +50,12 @@ class Cron extends AbstractContainerProvider implements HttpFoundationRequestInt
         $seconds = 60;
         set_time_limit($seconds);
         $time = time();
-        $args = [
-            'post_status' => 'inherit',
-            'meta_query' => [
-                'key' => FileSize::class,
-                'compare' => 'NOT EXISTS',
-            ],
-        ];
-        $attachments = $this->wpQueryGetAllIds('attachment', $args);
+        $attachments = $this->getAllAttachments();
 
         if (empty($attachments) || !count($attachments)) {
             return;
         }
 
-        $this->setCache(FileSize::NONCE_ACTION, count($attachments), FileSize::class);
         $error = new WP_Error();
         foreach ($attachments as $attachment) {
             // Break out of the loop if whe have reached >= $seconds.
@@ -77,5 +72,33 @@ class Cron extends AbstractContainerProvider implements HttpFoundationRequestInt
                 update_post_meta($attachment, FileSize::META_KEY, wp_filesize($file));
             }
         }
+    }
+
+    /**
+     * Run our attachment count cache cron.
+     */
+    protected function updateAttachmentCount(): void
+    {
+        $this->getAllAttachments();
+    }
+
+    /**
+     * @return int[] array
+     */
+    private function getAllAttachments(): array
+    {
+        $args = [
+            'post_status' => 'inherit',
+            'meta_query' => [
+                [
+                    'key' => FileSize::META_KEY,
+                    'compare' => 'NOT EXISTS',
+                ],
+            ],
+        ];
+        $attachments = $this->wpQueryGetAllIds('attachment', $args);
+        set_transient(self::TRANSIENT, count($attachments), WEEK_IN_SECONDS);
+
+        return $attachments;
     }
 }
