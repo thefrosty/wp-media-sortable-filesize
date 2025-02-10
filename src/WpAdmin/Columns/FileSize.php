@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace TheFrosty\WpMediaSortableFilesize\WpAdmin\Columns;
 
 use TheFrosty\WpMediaSortableFilesize\WpAdmin\Cron;
-use TheFrosty\WpUtilities\Api\WpCacheTrait;
 use TheFrosty\WpUtilities\Plugin\AbstractContainerProvider;
 use TheFrosty\WpUtilities\Plugin\HttpFoundationRequestInterface;
 use TheFrosty\WpUtilities\Plugin\HttpFoundationRequestTrait;
@@ -15,14 +14,17 @@ use function esc_attr__;
 use function esc_html__;
 use function esc_html_e;
 use function esc_url;
-use function filesize;
 use function get_attached_file;
+use function get_transient;
 use function is_int;
+use function is_numeric;
 use function is_readable;
 use function is_string;
 use function printf;
 use function size_format;
+use function strtotime;
 use function update_post_meta;
+use function wp_count_posts;
 use function wp_filesize;
 use function wp_get_attachment_metadata;
 use function wp_next_scheduled;
@@ -37,7 +39,7 @@ use function wp_verify_nonce;
 class FileSize extends AbstractContainerProvider implements HttpFoundationRequestInterface
 {
 
-    use HttpFoundationRequestTrait, WpCacheTrait;
+    use HttpFoundationRequestTrait;
 
     final public const META_KEY = '_filesize';
     final public const NONCE_ACTION = '_wp_attachment_metadata_filesize';
@@ -113,16 +115,21 @@ class FileSize extends AbstractContainerProvider implements HttpFoundationReques
         if ($column_name === self::META_KEY) {
             // First, try to get our attachment custom key value.
             $filesize = get_post_meta($attachment_id, self::META_KEY, true);
-            $has_meta = is_int($filesize);
+            $has_meta = is_numeric($filesize);
 
             if ($has_meta) {
                 echo esc_html($this->sizeFormat($filesize));
                 return;
             }
 
+            $warning = sprintf(
+                '<span class="dashicons dashicons-warning" title="%s"></span>&nbsp;',
+                esc_attr__('Missing attachment meta key, reading from meta or file.', 'media-sortable-filesize')
+            );
             // Second, try to get the attachment metadata filesize.
             $metadata = wp_get_attachment_metadata($attachment_id);
             if (isset($metadata['filesize']) && is_int($metadata['filesize'])) {
+                echo $warning;
                 echo esc_html($this->sizeFormat($metadata['filesize']));
                 return;
             }
@@ -131,10 +138,11 @@ class FileSize extends AbstractContainerProvider implements HttpFoundationReques
             $file = get_attached_file($attachment_id);
             // Make sure it's readable (on file-system).
             if (!is_string($file) || !is_readable($file)) {
-                esc_html_e('File not found', 'green-market-report');
+                esc_html_e('File not found', 'media-sortable-filesize');
                 return;
             }
 
+            echo $warning;
             echo esc_html($this->sizeFormat(wp_filesize($file)));
         }
     }
@@ -156,9 +164,9 @@ class FileSize extends AbstractContainerProvider implements HttpFoundationReques
                 return;
             }
 
-            $scheduled = wp_next_scheduled(Cron::HOOK);
+            $scheduled = wp_next_scheduled(Cron::HOOK_UPDATE_META);
             if (!$scheduled) {
-                $schedule = wp_schedule_single_event(strtotime('now'), Cron::HOOK);
+                $schedule = wp_schedule_single_event(strtotime('now'), Cron::HOOK_UPDATE_META);
             }
             wp_safe_redirect(
                 remove_query_arg(
@@ -175,7 +183,13 @@ class FileSize extends AbstractContainerProvider implements HttpFoundationReques
      */
     protected function restrictManagePosts(): void
     {
-        $count = $this->getCache(self::NONCE_ACTION, self::class);
+        $total = wp_count_posts('attachment')->inherit;
+        $count = get_transient(Cron::TRANSIENT);
+        if ($count === false) {
+            if (!wp_next_scheduled(Cron::HOOK_UPDATE_COUNT)) {
+                wp_schedule_single_event(strtotime('now'), Cron::HOOK_UPDATE_COUNT);
+            }
+        }
         printf(
             '<a href="%1$s" title="%3$s" class="button hide-if-no-js" style="margin-right:8px">%2$s</a>',
             esc_url(
@@ -187,8 +201,8 @@ class FileSize extends AbstractContainerProvider implements HttpFoundationReques
             ),
             sprintf(
                 '%1$s %2$s',
-                esc_html__('Filesize', 'media-sortable-filesize'),
-                !is_numeric($count) ? '' : ' (' . $count . ')'
+                esc_html__('Index Media', 'media-sortable-filesize'),
+                !is_numeric($count) ? '' : "(Total: $count/$total)"
             ),
             esc_attr__('Schedule the media filesize meta index cron to run now', 'media-sortable-filesize')
         );
