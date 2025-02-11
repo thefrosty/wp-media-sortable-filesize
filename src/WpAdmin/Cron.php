@@ -16,9 +16,14 @@ use function is_readable;
 use function is_string;
 use function set_time_limit;
 use function set_transient;
+use function strtotime;
 use function time;
 use function update_post_meta;
 use function wp_filesize;
+use function wp_next_scheduled;
+use function wp_schedule_single_event;
+use const MINUTE_IN_SECONDS;
+use const WEEK_IN_SECONDS;
 
 /**
  * Class Cron
@@ -32,6 +37,16 @@ class Cron extends AbstractContainerProvider implements HttpFoundationRequestInt
     final public const HOOK_UPDATE_META = 'wp_media_sortable_filesize';
     final public const HOOK_UPDATE_COUNT = 'wp_media_sortable_filesize';
     final public const TRANSIENT = 'wp_media_sortable_filesize_count';
+
+    /**
+     * Helper method to trigger a re-count event.
+     */
+    public static function scheduleSingleEventCount(): void
+    {
+        if (!wp_next_scheduled(Cron::HOOK_UPDATE_COUNT)) {
+            wp_schedule_single_event(strtotime('now'), Cron::HOOK_UPDATE_COUNT);
+        }
+    }
 
     /**
      * Add class hooks.
@@ -96,7 +111,7 @@ class Cron extends AbstractContainerProvider implements HttpFoundationRequestInt
                 ],
             ],
         ];
-        $attachments = $this->wpQueryGetAllIds('attachment', $args);
+        $attachments = $this->wpQueryGetAllIdsCached('attachment', $args, MINUTE_IN_SECONDS);
         set_transient(self::TRANSIENT, count($attachments), WEEK_IN_SECONDS);
 
         return $attachments;
