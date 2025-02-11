@@ -1,6 +1,6 @@
 {
     "name": "thefrosty/wp-media-sortable-filesize",
-    "description": "",
+    "description": "Improve your Media Library functionality by introducing a new column that showcases the sizes of files.",
     "type": "wordpress-plugin",
     "license": "MIT",
     "authors": [
@@ -36,7 +36,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Thefrosty\\WpMediaSortableFilesize\\": "src/"
+            "TheFrosty\\WpMediaSortableFilesize\\": "src"
         }
     }
 }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Thefrosty\WpMediaSortableFilesize\WpAdmin;
+namespace TheFrosty\WpMediaSortableFilesize\WpAdmin;
 
 use TheFrosty\WpMediaSortableFilesize\WpAdmin\Columns\FileSize;
 use TheFrosty\WpUtilities\Plugin\AbstractContainerProvider;
