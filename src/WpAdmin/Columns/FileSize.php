@@ -186,9 +186,7 @@ class FileSize extends AbstractContainerProvider implements HttpFoundationReques
         $total = wp_count_posts('attachment')->inherit;
         $count = get_transient(Cron::TRANSIENT);
         if ($count === false) {
-            if (!wp_next_scheduled(Cron::HOOK_UPDATE_COUNT)) {
-                wp_schedule_single_event(strtotime('now'), Cron::HOOK_UPDATE_COUNT);
-            }
+            Cron::scheduleSingleEventCount();
         }
         printf(
             '<a href="%1$s" title="%3$s" class="button hide-if-no-js" style="margin-right:8px">%2$s</a>',
