@@ -33,6 +33,7 @@ $plugin = PluginFactory::create('media-sortable-filesize');
 
 $plugin
     ->add(new WpAdmin\Cron())
+    ->addOnHook(WpAdmin\BulkActions::class, 'init', admin_only: true)
     ->addOnHook(WpAdmin\Columns\FileSize::class, 'init', admin_only: true);
 
 if (is_admin()) {
