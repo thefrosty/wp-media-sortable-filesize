@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Media Sortable Filesize
- * Description: Catches scheduled posts that have been missed and publishes them.
+ * Description: Improve your Media Library functionality by introducing a new column that showcases the sizes of files.
  * Author: Austin Passy
  * Author URI: https://austin.passy.co/
  * Version: 1.0.0
