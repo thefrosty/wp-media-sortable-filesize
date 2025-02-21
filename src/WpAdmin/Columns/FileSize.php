@@ -8,6 +8,7 @@ use TheFrosty\WpMediaSortableFilesize\WpAdmin\Cron;
 use TheFrosty\WpUtilities\Plugin\AbstractContainerProvider;
 use TheFrosty\WpUtilities\Plugin\HttpFoundationRequestInterface;
 use TheFrosty\WpUtilities\Plugin\HttpFoundationRequestTrait;
+use WP_Post;
 use WP_Query;
 use function absint;
 use function add_query_arg;
@@ -23,7 +24,9 @@ use function is_numeric;
 use function is_readable;
 use function is_string;
 use function printf;
+use function remove_query_arg;
 use function size_format;
+use function sprintf;
 use function strtotime;
 use function update_post_meta;
 use function wp_count_posts;
@@ -32,6 +35,7 @@ use function wp_get_attachment_metadata;
 use function wp_get_original_image_path;
 use function wp_next_scheduled;
 use function wp_nonce_url;
+use function wp_safe_redirect;
 use function wp_schedule_single_event;
 use function wp_verify_nonce;
 
@@ -79,11 +83,36 @@ class FileSize extends AbstractContainerProvider implements HttpFoundationReques
      */
     public function addHooks(): void
     {
+        $this->addFilter('media_row_actions', [$this, 'mediaRowActions'], 10, 2);
         $this->addFilter('manage_media_columns', [$this, 'manageMediaColumns']);
         $this->addFilter('manage_upload_sortable_columns', [$this, 'manageUploadSortableColumns']);
         $this->addAction('added_post_meta', [$this, 'addFilesizeMetadata'], 10, 4);
         $this->addAction('manage_media_custom_column', [$this, 'manageMediaCustomColumn'], 10, 2);
         $this->addAction('load-upload.php', [$this, 'loadUploadPhp']);
+    }
+
+    /**
+     * Add a new refresh filesize to the media row actions.
+     * This allows users to refresh the custom post meta value if the file was changed externally or by a 3rd party.
+     * @param array $actions
+     * @param WP_Post $post
+     * @return array
+     */
+    protected function mediaRowActions(array $actions, WP_Post $post): array
+    {
+        $actions['refresh_filesize'] = sprintf(
+            '<a href="%1$s">%2$s</a>',
+            esc_url(
+                wp_nonce_url(
+                    add_query_arg(['action' => self::NONCE_ACTION, 'attachment_id' => $post->ID]),
+                    self::NONCE_ACTION,
+                    self::NONCE_NAME
+                )
+            ),
+            esc_html__('Refresh filesize', 'media-sortable-filesize')
+        );;
+
+        return $actions;
     }
 
     /**
@@ -180,17 +209,25 @@ class FileSize extends AbstractContainerProvider implements HttpFoundationReques
                 return;
             }
 
+            // Single attachment cron event.
+            if (
+                $this->getRequest()->query->has('attachment_id') &&
+                is_numeric($this->getRequest()->query->get('attachment_id'))
+            ) {
+                $attachment_id = $this->getRequest()->query->get('attachment_id');
+                $scheduled = wp_next_scheduled(Cron::HOOK_UPDATE_ID, [$attachment_id]);
+                if (!$scheduled) {
+                    $schedule = wp_schedule_single_event(strtotime('now'), Cron::HOOK_UPDATE_ID, [(int)$attachment_id]);
+                }
+                $this->safeRedirect($schedule ?? $scheduled);
+            }
+
+            // All attachment's cron event.
             $scheduled = wp_next_scheduled(Cron::HOOK_UPDATE_META);
             if (!$scheduled) {
                 $schedule = wp_schedule_single_event(strtotime('now'), Cron::HOOK_UPDATE_META);
             }
-            wp_safe_redirect(
-                remove_query_arg(
-                    ['action', 'nonce'],
-                    add_query_arg('scheduled', is_int($scheduled) ? $scheduled : $schedule ?? false)
-                )
-            );
-            exit;
+            $this->safeRedirect($schedule ?? $scheduled);
         }, 20);
     }
 
@@ -291,6 +328,22 @@ STYLE;
                 esc_attr__('Additional intermediate image sizes added together.', 'media-sortable-filesize')
             );
         }
+    }
+
+    /**
+     * Safe redirect exit helper.
+     * @param mixed|null $scheduled
+     * @return never
+     */
+    private function safeRedirect(mixed $scheduled = null): never
+    {
+        wp_safe_redirect(
+            remove_query_arg(
+                ['action', 'attachment_id', 'nonce'],
+                add_query_arg('scheduled', is_int($scheduled) ? $scheduled : $schedule ?? false)
+            )
+        );
+        exit;
     }
 
     /**
