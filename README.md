@@ -4,7 +4,6 @@
 [![Latest Stable Version](https://img.shields.io/packagist/v/thefrosty/wp-media-sortable-filesize.svg)](https://packagist.org/packages/thefrosty/wp-media-sortable-filesize)
 [![Total Downloads](https://img.shields.io/packagist/dt/thefrosty/wp-media-sortable-filesize.svg)](https://packagist.org/packages/thefrosty/wp-media-sortable-filesize)
 [![License](https://img.shields.io/packagist/l/thefrosty/wp-media-sortable-filesize.svg)](https://packagist.org/thefrosty/wp-media-sortable-filesize)
-![Build Status](https://github.com/thefrosty/wp-media-sortable-filesize/actions/workflows/main.yml/badge.svg)
 
 Improve your Media Library functionality by introducing a new column that showcases the sizes of files.
 
