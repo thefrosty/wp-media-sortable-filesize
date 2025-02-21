@@ -9,8 +9,10 @@ use TheFrosty\WpUtilities\Plugin\AbstractContainerProvider;
 use TheFrosty\WpUtilities\Plugin\HttpFoundationRequestInterface;
 use TheFrosty\WpUtilities\Plugin\HttpFoundationRequestTrait;
 use WP_Query;
+use function absint;
 use function add_query_arg;
 use function esc_attr__;
+use function esc_html;
 use function esc_html__;
 use function esc_html_e;
 use function esc_url;
@@ -27,6 +29,7 @@ use function update_post_meta;
 use function wp_count_posts;
 use function wp_filesize;
 use function wp_get_attachment_metadata;
+use function wp_get_original_image_path;
 use function wp_next_scheduled;
 use function wp_nonce_url;
 use function wp_schedule_single_event;
@@ -44,6 +47,32 @@ class FileSize extends AbstractContainerProvider implements HttpFoundationReques
     final public const META_KEY = '_filesize';
     final public const NONCE_ACTION = '_wp_attachment_metadata_filesize';
     final public const NONCE_NAME = 'nonce';
+
+    /**
+     * Get the attachment filesize.
+     * @param int $attachment_id
+     * @param string|null $message
+     */
+    public static function getFileSize(int $attachment_id, ?string $message = null): void
+    {
+        $metadata = wp_get_attachment_metadata($attachment_id);
+        if (isset($metadata['filesize']) && is_int($metadata['filesize'])) {
+            echo $message ?? '';
+            echo esc_html(size_format($metadata['filesize']));
+            return;
+        }
+
+        // If empty, try to read the attached file filesize via PHP.
+        $file = get_attached_file($attachment_id);
+        // Make sure it's readable (on file-system).
+        if (!is_string($file) || !is_readable($file)) {
+            esc_html_e('File not found', 'media-sortable-filesize');
+            return;
+        }
+
+        echo $message ?? '';
+        echo esc_html(size_format(wp_filesize($file)));
+    }
 
     /**
      * Add class hooks.
@@ -117,8 +146,10 @@ class FileSize extends AbstractContainerProvider implements HttpFoundationReques
             $filesize = get_post_meta($attachment_id, self::META_KEY, true);
             $has_meta = is_numeric($filesize);
 
+
             if ($has_meta) {
                 echo esc_html($this->sizeFormat($filesize));
+                $this->getIntermediateFilesizeHtml($attachment_id);
                 return;
             }
 
@@ -126,24 +157,9 @@ class FileSize extends AbstractContainerProvider implements HttpFoundationReques
                 '<span class="dashicons dashicons-warning" title="%s"></span>&nbsp;',
                 esc_attr__('Missing attachment meta key, reading from meta or file.', 'media-sortable-filesize')
             );
+
             // Second, try to get the attachment metadata filesize.
-            $metadata = wp_get_attachment_metadata($attachment_id);
-            if (isset($metadata['filesize']) && is_int($metadata['filesize'])) {
-                echo $warning;
-                echo esc_html($this->sizeFormat($metadata['filesize']));
-                return;
-            }
-
-            // If empty, try to read the attached file filesize via PHP.
-            $file = get_attached_file($attachment_id);
-            // Make sure it's readable (on file-system).
-            if (!is_string($file) || !is_readable($file)) {
-                esc_html_e('File not found', 'media-sortable-filesize');
-                return;
-            }
-
-            echo $warning;
-            echo esc_html($this->sizeFormat(wp_filesize($file)));
+            self::getFileSize($attachment_id, $warning);
         }
     }
 
@@ -238,6 +254,43 @@ STYLE;
         $query->set('order', $this->getRequest()->query->get('order', 'desc'));
         $query->set('orderby', 'meta_value_num');
         $query->set('meta_key', self::META_KEY);
+    }
+
+    /**
+     * Calculates the total generated sizes of all intermediate image sizes.
+     * @param int $attachment_id
+     * @return int
+     */
+    private function getIntermediateFilesize(int $attachment_id): int
+    {
+        $meta = wp_get_attachment_metadata($attachment_id);
+        $size = 0;
+        if (isset($meta['sizes'])) {
+            foreach ($meta['sizes'] as $sizes) {
+                $size += $sizes['filesize'] ?? 0;
+            }
+        }
+        if (isset($meta['original_image']) && wp_get_original_image_path($attachment_id)) {
+            $size += wp_filesize(wp_get_original_image_path($attachment_id));
+        }
+
+        return absint($size);
+    }
+
+    /**
+     * Get the intermediate image sizes HTML output.
+     * @param int $attachment_id
+     */
+    private function getIntermediateFilesizeHtml(int $attachment_id): void
+    {
+        $size = $this->getIntermediateFilesize($attachment_id);
+        if ($size > 0) {
+            printf(
+                '<br><small title="%2$s">&plus; %1$s</small>',
+                esc_html($this->sizeFormat($size)),
+                esc_attr__('Additional intermediate image sizes added together.', 'media-sortable-filesize')
+            );
+        }
     }
 
     /**
