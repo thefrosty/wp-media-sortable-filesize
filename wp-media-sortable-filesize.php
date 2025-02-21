@@ -18,8 +18,10 @@ namespace TheFrosty\WpMediaSortableFilesize;
 
 defined('ABSPATH') || exit;
 
+use Pimple\Container;
 use TheFrosty\WpUtilities\Plugin\PluginFactory;
 use TheFrosty\WpUtilities\WpAdmin\DisablePluginUpdateCheck;
+use UnexpectedValueException;
 use function add_action;
 use function defined;
 use function is_admin;
@@ -30,11 +32,17 @@ if (is_readable(__DIR__ . '/vendor/autoload.php')) {
 }
 
 $plugin = PluginFactory::create('media-sortable-filesize');
+$container = $plugin->getContainer();
+if (!$container instanceof Container) {
+    throw new UnexpectedValueException('Unexpected object in Plugin container.');
+}
+$container->register(new ServiceProvider());
 
 $plugin
     ->add(new WpAdmin\Cron())
     ->addOnHook(WpAdmin\BulkActions::class, 'init', admin_only: true)
-    ->addOnHook(WpAdmin\Columns\FileSize::class, 'init', admin_only: true);
+    ->addOnHook(WpAdmin\Columns\FileSize::class, 'init', admin_only: true)
+    ->addOnHook(WpAdmin\Meta\Attachment::class, 'admin_init', args: [$container]);
 
 if (is_admin()) {
     $plugin->add(new DisablePluginUpdateCheck());
