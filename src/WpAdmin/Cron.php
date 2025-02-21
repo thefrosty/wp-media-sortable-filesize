@@ -36,6 +36,8 @@ class Cron extends AbstractContainerProvider implements HttpFoundationRequestInt
 
     final public const HOOK_UPDATE_META = 'wp_media_sortable_filesize';
     final public const HOOK_UPDATE_COUNT = 'wp_media_sortable_filesize';
+    final public const HOOK_UPDATE_ID = 'wp_media_sortable_filesize_id';
+
     final public const TRANSIENT = 'wp_media_sortable_filesize_count';
 
     /**
@@ -55,6 +57,7 @@ class Cron extends AbstractContainerProvider implements HttpFoundationRequestInt
     {
         $this->addAction(self::HOOK_UPDATE_META, [$this, 'updateAllAttachmentsPostMeta']);
         $this->addAction(self::HOOK_UPDATE_COUNT, [$this, 'updateAttachmentCount']);
+        $this->addAction(self::HOOK_UPDATE_ID, [$this, 'updateAttachmentIdMeta']);
     }
 
     /**
@@ -98,6 +101,21 @@ class Cron extends AbstractContainerProvider implements HttpFoundationRequestInt
     }
 
     /**
+     * Update the attachment filesize post meta.
+     */
+    protected function updateAttachmentIdMeta(int|string $attachment_id): void
+    {
+        $previous = get_post_meta($attachment_id, FileSize::META_KEY, true);
+        $file = get_attached_file($attachment_id);
+        // Make sure it's readable (on file-system).
+        if (!is_string($file) || !is_readable($file)) {
+            return;
+        }
+        update_post_meta($attachment_id, FileSize::META_KEY, wp_filesize($file), $previous);
+    }
+
+    /**
+     * Get all attachments query.
      * @return int[] array
      */
     private function getAllAttachments(): array
