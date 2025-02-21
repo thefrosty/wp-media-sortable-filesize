@@ -4,9 +4,9 @@
  * Description: Improve your Media Library functionality by introducing a new column that showcases the sizes of files.
  * Author: Austin Passy
  * Author URI: https://austin.passy.co/
- * Version: 1.0.0
+ * Version: 1.1.0
  * Requires at least: 6.6
- * Tested up to: 6.7.1
+ * Tested up to: 6.7.2
  * Requires PHP: 8.1
  * Plugin URI: https://github.com/thefrosty/wp-media-sortable-filesize
  * GitHub Plugin URI: https://github.com/thefrosty/wp-media-sortable-filesize
