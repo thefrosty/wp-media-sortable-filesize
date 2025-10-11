@@ -33,7 +33,6 @@
     },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0.0",
-        "roave/security-advisories": "dev-master",
         "roots/wordpress-no-content": "^6.6"
     },
     "autoload": {
