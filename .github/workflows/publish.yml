@@ -67,7 +67,7 @@ jobs:
           path: build/${{ github.event.repository.name }}.zip
 
       - name: Upload to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: build/${{ github.event.repository.name }}.zip
         env:
@@ -80,7 +80,7 @@ jobs:
           args: zip -X -r build/${{ github.event.repository.name }}-${{ env.RELEASE_VERSION }}.zip . -x *.git* bin** node_modules/\* .* "*/\.*" *.dist *.xml *.neon composer.lock package*.json tests** build**
 
       - name: Upload duplicate to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: build/${{ github.event.repository.name }}-${{ env.RELEASE_VERSION }}.zip
         env:
